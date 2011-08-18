@@ -31,6 +31,7 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.index.Index;
+import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.helpers.collection.IterableWrapper;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.test.TargetDirectory;
@@ -112,9 +113,8 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
         Node node2 = createNode();
         Relationship rel;
         rel = createRelationship( node1, node2, TestTypes.TEST );
-        Transaction tx;
         long id = rel.getId();
-        tx = graphdb.beginTx();
+        Transaction tx = graphdb.beginTx();
         try
         {
             rel.delete();
@@ -167,18 +167,70 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
     {
         Node node = createNode();
         Index<Node> nodeIndex = graphdb.index().forNodes( "nodeIndex" );
-        Transaction tx = graphdb.beginTx();
-        try
-        {
-            nodeIndex.add( node, "key", "value" );
-            tx.success();
-        }
-        finally
-        {
-            tx.finish();
-        }
+
+        indexAdd( nodeIndex, node, "key", "value" );
         assertEquals( node, nodeIndex.get( "key", "value" ).getSingle() );
         assertEquals( node, nodeIndex.query( "key:value" ).getSingle() );
+        assertEquals( node, nodeIndex.query( "key", "value" ).getSingle() );
+        assertContainsAll( nodeIndex.get( "key", "value" ), node );
+        assertEquals( 1, nodeIndex.get( "key", "value" ).size() );
+        indexRemove( nodeIndex, node );
+        assertNull( nodeIndex.get( "key", "value" ).getSingle() );
+
+        indexAdd( nodeIndex, node, "key", "value" );
+        assertEquals( node, nodeIndex.get( "key", "value" ).getSingle() );
+        indexRemove( nodeIndex, node, "key" );
+        assertNull( nodeIndex.get( "key", "value" ).getSingle() );
+
+        indexAdd( nodeIndex, node, "key", "value" );
+        assertEquals( node, nodeIndex.get( "key", "value" ).getSingle() );
+        indexRemove( nodeIndex, node, "key", "value" );
+        assertNull( nodeIndex.get( "key", "value" ).getSingle() );
+
+        assertEquals( "nodeIndex", nodeIndex.getName() );
+        assertEquals( Node.class, nodeIndex.getEntityType() );
+    }
+
+    @Test
+    public void canUseRelationshipIndex()
+    {
+        Node node1 = createNode();
+        Node node2 = createNode();
+        Node node3 = createNode();
+        Relationship rel = createRelationship( node1, node2, TestTypes.TEST );
+        RelationshipIndex relIndex = graphdb.index().forRelationships( "relIndex" );
+
+        indexAdd( relIndex, rel, "key", "value" );
+        assertEquals( rel, relIndex.get( "key", "value" ).getSingle() );
+        assertEquals( rel, relIndex.get( "key", "value", node1, node2 ).getSingle() );
+        assertNull( relIndex.get( "key", "value", node1, node3 ).getSingle() );
+        assertEquals( rel, relIndex.query( "key:value" ).getSingle() );
+        assertEquals( rel, relIndex.query( "key", "value" ).getSingle() );
+        assertEquals( rel, relIndex.query( "key", "value", node1, node2 ).getSingle() );
+        assertEquals( rel, relIndex.query( "key:value", node1, node2 ).getSingle() );
+        assertNull( relIndex.query( "key", "value", node1, node3 ).getSingle() );
+        assertContainsAll( relIndex.get( "key", "value" ), rel );
+        assertEquals( 1, relIndex.get( "key", "value" ).size() );
+        indexRemove( relIndex, rel );
+        assertNull( relIndex.get( "key", "value" ).getSingle() );
+
+        indexAdd( relIndex, rel, "key", "value" );
+        assertEquals( rel, relIndex.get( "key", "value" ).getSingle() );
+        indexRemove( relIndex, rel, "key" );
+        assertNull( relIndex.get( "key", "value" ).getSingle() );
+
+        indexAdd( relIndex, rel, "key", "value" );
+        assertEquals( rel, relIndex.get( "key", "value" ).getSingle() );
+        indexRemove( relIndex, rel, "key", "value" );
+        assertNull( relIndex.get( "key", "value" ).getSingle() );
+
+        assertEquals( "relIndex", relIndex.getName() );
+        assertEquals( Relationship.class, relIndex.getEntityType() );
+    }
+
+    private <T extends PropertyContainer> void indexRemove( Index<T> nodeIndex, T node )
+    {
+        Transaction tx;
         tx = graphdb.beginTx();
         try
         {
@@ -189,7 +241,49 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
         {
             tx.finish();
         }
-        assertNull( nodeIndex.get( "key", "value" ).getSingle() );
+    }
+
+    private <T extends PropertyContainer> void indexRemove( Index<T> nodeIndex, T node, String key )
+    {
+        Transaction tx;
+        tx = graphdb.beginTx();
+        try
+        {
+            nodeIndex.remove( node, key );
+            tx.success();
+        }
+        finally
+        {
+            tx.finish();
+        }
+    }
+    private <T extends PropertyContainer> void indexRemove( Index<T> nodeIndex, T node, String key, Object value )
+    {
+        Transaction tx;
+        tx = graphdb.beginTx();
+        try
+        {
+            nodeIndex.remove( node, key, value );
+            tx.success();
+        }
+        finally
+        {
+            tx.finish();
+        }
+    }
+
+    private <T extends PropertyContainer> void indexAdd( Index<T> nodeIndex, T node, String key, String value )
+    {
+        Transaction tx = graphdb.beginTx();
+        try
+        {
+            nodeIndex.add( node, key, value );
+            tx.success();
+        }
+        finally
+        {
+            tx.finish();
+        }
     }
 
     public Node createNode()

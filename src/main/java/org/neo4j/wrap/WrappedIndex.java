@@ -19,10 +19,6 @@
  */
 package org.neo4j.wrap;
 
-import static org.neo4j.wrap.WrappedEntity.unwrap;
-
-import java.util.Iterator;
-
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.PropertyContainer;
 import org.neo4j.graphdb.Relationship;
@@ -32,6 +28,10 @@ import org.neo4j.graphdb.index.ReadableIndex;
 import org.neo4j.graphdb.index.ReadableRelationshipIndex;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.helpers.collection.IteratorWrapper;
+
+import java.util.Iterator;
+
+import static org.neo4j.wrap.WrappedEntity.unwrap;
 
 public abstract class WrappedIndex<T extends PropertyContainer, I extends ReadableIndex<T>> extends WrappedObject<I>
         implements Index<T>
