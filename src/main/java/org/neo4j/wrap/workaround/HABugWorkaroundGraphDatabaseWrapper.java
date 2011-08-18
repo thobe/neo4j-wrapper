@@ -75,6 +75,24 @@ public class HABugWorkaroundGraphDatabaseWrapper extends WrappedGraphDatabase
         {
             return id;
         }
+
+        @Override
+        public int hashCode()
+        {
+            return (int) ( ( id >>> 32 ) ^ id );
+        }
+
+        @Override
+        public boolean equals( Object obj )
+        {
+            if ( this == obj ) return true;
+            if ( obj instanceof LookupNode )
+            {
+                LookupNode that = (LookupNode) obj;
+                return this.id == that.id && this.graphdb == that.graphdb;
+            }
+            return false;
+        }
     }
 
     private static class LookupRelationship extends WrappedRelationship<HABugWorkaroundGraphDatabaseWrapper>
@@ -97,6 +115,24 @@ public class HABugWorkaroundGraphDatabaseWrapper extends WrappedGraphDatabase
         public long getId()
         {
             return id;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return (int) ( ( id >>> 32 ) ^ id );
+        }
+
+        @Override
+        public boolean equals( Object obj )
+        {
+            if ( this == obj ) return true;
+            if ( obj instanceof LookupRelationship )
+            {
+                LookupRelationship that = (LookupRelationship) obj;
+                return this.id == that.id && this.graphdb == that.graphdb;
+            }
+            return false;
         }
     }
 }

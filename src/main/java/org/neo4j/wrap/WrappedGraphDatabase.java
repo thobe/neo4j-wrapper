@@ -125,21 +125,6 @@ public abstract class WrappedGraphDatabase extends AbstractGraphDatabase
         return new WrappedIndex.WrappedRelationshipIndex( this, index );
     }
 
-    /*
-    @SuppressWarnings( { "unchecked", "rawtypes" } )
-    protected WrappedIndex.WrappedNodeAutoIndex<? extends WrappedGraphDatabase> nodeAutoIndex( AutoIndex<Node> index )
-    {
-        return new WrappedIndex.WrappedNodeAutoIndex( this, index );
-    }
-
-    @SuppressWarnings( { "unchecked", "rawtypes" } )
-    protected WrappedIndex.WrappedRelationshipAutoIndex<? extends WrappedGraphDatabase> relationshipAutoIndex(
-            AutoIndex<Relationship> index )
-    {
-        return new WrappedIndex.WrappedRelationshipAutoIndex( this, index );
-    }
-    */
-
     protected void onBeginTransaction() throws TransactionNotAllowedException
     {
         // default: do nothing

@@ -19,6 +19,8 @@
  */
 package org.neo4j.wrap;
 
+import java.util.Iterator;
+
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.PropertyContainer;
 import org.neo4j.graphdb.Relationship;
@@ -27,9 +29,6 @@ import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.ReadableIndex;
 import org.neo4j.graphdb.index.ReadableRelationshipIndex;
 import org.neo4j.graphdb.index.RelationshipIndex;
-import org.neo4j.helpers.collection.IteratorWrapper;
-
-import java.util.Iterator;
 
 import static org.neo4j.wrap.WrappedEntity.unwrap;
 
@@ -172,92 +171,6 @@ public abstract class WrappedIndex<T extends PropertyContainer, I extends Readab
         }
     }
 
-    /*
-    private static abstract class WrappedAutoIndex<G extends WrappedGraphDatabase, T extends PropertyContainer> extends
-            WrappedObject<AutoIndex<T>> implements AutoIndex<T>
-    {
-        WrappedAutoIndex( G graphdb, AutoIndex<T> wrapped )
-        {
-            super( graphdb, wrapped );
-        }
-
-        @SuppressWarnings( "unchecked" )
-        protected G graphdb()
-        {
-            return (G) graphdb;
-        }
-
-        @Override
-        public Class<T> getEntityType()
-        {
-            return wrapped.getEntityType();
-        }
-
-        @Override
-        public IndexHits<T> get( String key, Object value )
-        {
-            return new Hits( wrapped.get( key, value ) );
-        }
-
-        @Override
-        public IndexHits<T> query( String key, Object queryOrQueryObject )
-        {
-            return new Hits( wrapped.query( key, queryOrQueryObject ) );
-        }
-
-        @Override
-        public IndexHits<T> query( Object queryOrQueryObject )
-        {
-            return new Hits( wrapped.query( queryOrQueryObject ) );
-        }
-
-        abstract T wrap( T item );
-
-        private class Hits extends WrappedIndexHits<T>
-        {
-            Hits( IndexHits<T> hits )
-            {
-                super( hits );
-            }
-
-            @Override
-            T wrap( T item )
-            {
-                return WrappedAutoIndex.this.wrap( item );
-            }
-        }
-    }
-
-    public static class WrappedNodeAutoIndex<G extends WrappedGraphDatabase> extends WrappedAutoIndex<G, Node>
-    {
-        protected WrappedNodeAutoIndex( G graphdb, AutoIndex<Node> wrapped )
-        {
-            super( graphdb, wrapped );
-        }
-
-        @Override
-        Node wrap( Node item )
-        {
-            return graphdb.node( item, false );
-        }
-    }
-
-    public static class WrappedRelationshipAutoIndex<G extends WrappedGraphDatabase> extends
-            WrappedAutoIndex<G, Relationship>
-    {
-        protected WrappedRelationshipAutoIndex( G graphdb, AutoIndex<Relationship> wrapped )
-        {
-            super( graphdb, wrapped );
-        }
-
-        @Override
-        Relationship wrap( Relationship item )
-        {
-            return graphdb.relationship( item, false );
-        }
-    }
-    */
-
     public static class WrappedRelationshipIndex<G extends WrappedGraphDatabase> extends
             WrappedIndex<Relationship, ReadableRelationshipIndex> implements RelationshipIndex
     {
@@ -356,14 +269,7 @@ public abstract class WrappedIndex<T extends PropertyContainer, I extends Readab
         @Override
         public Iterator<T> iterator()
         {
-            return new IteratorWrapper<T, T>( hits.iterator() )
-            {
-                @Override
-                protected T underlyingObjectToObject( T object )
-                {
-                    return wrap( object );
-                }
-            };
+            return this;
         }
 
         @Override

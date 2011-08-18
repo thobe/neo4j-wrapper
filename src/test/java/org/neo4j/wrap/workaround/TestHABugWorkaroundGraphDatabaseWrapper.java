@@ -19,6 +19,9 @@
  */
 package org.neo4j.wrap.workaround;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -35,10 +38,8 @@ import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.helpers.collection.IterableWrapper;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.test.TargetDirectory;
-import scala.actors.threadpool.Arrays;
 
-import java.util.HashSet;
-import java.util.Set;
+import scala.actors.threadpool.Arrays;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -341,11 +342,14 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
         {
             entity = entityType.create( this );
             assertFalse( entity.hasProperty( "key" ) );
+            assertNull( entity.getProperty( "key", null ) );
             assertContainsAll( entity.getPropertyKeys() );
             assertContainsAll( entity.getPropertyValues() );
             entity.setProperty( "key", "value" );
             assertTrue( entity.hasProperty( "key" ) );
             assertEquals( "value", entity.getProperty( "key" ) );
+            assertEquals( "value", entity.getProperty( "key", null ) );
+            assertNull( entity.getProperty( "foo", null ) );
 
             tx.success();
         }
@@ -355,6 +359,7 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
         }
         assertTrue( entity.hasProperty( "key" ) );
         assertEquals( "value", entity.getProperty( "key" ) );
+        assertEquals( "value", entity.getProperty( "key", null ) );
         assertContainsAll( entity.getPropertyKeys(), "key" );
         assertContainsAll( entity.getPropertyValues(), "value" );
         tx = graphdb.beginTx();
@@ -370,6 +375,7 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
             tx.finish();
         }
         assertFalse( entity.hasProperty( "key" ) );
+        assertNull( entity.getProperty( "key", null ) );
         assertContainsAll( entity.getPropertyKeys() );
         assertContainsAll( entity.getPropertyValues() );
     }
@@ -413,7 +419,7 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
 
     public static class RelationshipOtherNodeIterableWrapper extends IterableWrapper<Node, Relationship>
     {
-        private Node node;
+        private final Node node;
 
         public RelationshipOtherNodeIterableWrapper( Node node, Iterable<Relationship> relationships )
         {
