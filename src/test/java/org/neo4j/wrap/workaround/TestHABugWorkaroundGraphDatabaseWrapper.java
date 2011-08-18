@@ -19,39 +19,45 @@
  */
 package org.neo4j.wrap.workaround;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
-import java.util.HashSet;
-import java.util.Set;
-
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.NotFoundException;
 import org.neo4j.graphdb.PropertyContainer;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.index.Index;
+import org.neo4j.helpers.collection.IterableWrapper;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.test.TargetDirectory;
-
 import scala.actors.threadpool.Arrays;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.neo4j.wrap.workaround.TestHABugWorkaroundGraphDatabaseWrapper.RelationshipOtherNodeIterableWrapper.otherNodes;
 
 public class TestHABugWorkaroundGraphDatabaseWrapper
 {
     private static final TargetDirectory target = TargetDirectory
-            .forTest( TestHABugWorkaroundGraphDatabaseWrapper.class );
+        .forTest( TestHABugWorkaroundGraphDatabaseWrapper.class );
     private static GraphDatabaseService graphdb;
 
     @BeforeClass
     public static void startGraphDB() throws Exception
     {
         graphdb = new HABugWorkaroundGraphDatabaseWrapper( new EmbeddedGraphDatabase( target.graphDbDir( true )
-                .getAbsolutePath() ) );
+            .getAbsolutePath() ) );
     }
 
     @AfterClass
@@ -61,36 +67,129 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
         graphdb = null;
     }
 
-    enum TestTypes implements RelationshipType
-    {
-        TEST
-    }
-
-    enum EntityType
-    {
-        NODE
-        {
-            @Override
-            PropertyContainer create( TestHABugWorkaroundGraphDatabaseWrapper test )
-            {
-                return test.createNode();
-            }
-        },
-        REL
-        {
-            @Override
-            PropertyContainer create( TestHABugWorkaroundGraphDatabaseWrapper test )
-            {
-                return test.createRelationship();
-            }
-        };
-        abstract PropertyContainer create( TestHABugWorkaroundGraphDatabaseWrapper test );
-    }
-
     @Test
     public void canCreateNode()
     {
         createNode();
+    }
+
+    @Test( expected = NotFoundException.class )
+    public void canRemoveNode()
+    {
+        Node node = createNode();
+        long id = node.getId();
+        Transaction tx = graphdb.beginTx();
+        try
+        {
+            node.delete();
+            tx.success();
+        }
+        finally
+        {
+            tx.finish();
+        }
+        graphdb.getNodeById( id );
+    }
+
+    @Test
+    public void canCreateRelationship()
+    {
+        Node node1 = createNode();
+        Node node2 = createNode();
+
+        Relationship rel = createRelationship( node1, node2, TestTypes.TEST );
+        assertEquals( node1, rel.getStartNode() );
+        assertEquals( node2, rel.getEndNode() );
+        assertEquals( TestTypes.TEST.name(), rel.getType().name() );
+        assertArrayEquals( new Node[] { node1, node2 }, rel.getNodes() );
+        assertTrue( rel.isType( TestTypes.TEST ) );
+    }
+
+    @Test( expected = NotFoundException.class )
+    public void canDeleteRelationship()
+    {
+        Node node1 = createNode();
+        Node node2 = createNode();
+        Relationship rel;
+        rel = createRelationship( node1, node2, TestTypes.TEST );
+        Transaction tx;
+        long id = rel.getId();
+        tx = graphdb.beginTx();
+        try
+        {
+            rel.delete();
+            tx.success();
+        }
+        finally
+        {
+            tx.finish();
+        }
+        graphdb.getRelationshipById( id );
+    }
+
+    @Test
+    public void canOperateWithNodeProperty() throws Exception
+    {
+        canOperateWithProperty( EntityType.NODE );
+    }
+
+    @Test
+    public void canOperateWithRelationshipProperty() throws Exception
+    {
+        canOperateWithProperty( EntityType.REL );
+    }
+
+    @Test
+    public void canReadRelationships()
+    {
+        Node node1 = createNode();
+        Node node2 = createNode();
+        Node node3 = createNode();
+        createRelationship( node1, node2, TestTypes.TEST );
+        createRelationship( node3, node1, TestTypes.FOO );
+
+        assertContainsAll( otherNodes( node1, node1.getRelationships() ), node2, node3 );
+        assertContainsAll( otherNodes( node1, node1.getRelationships( Direction.OUTGOING ) ), node2 );
+        assertContainsAll( otherNodes( node1, node1.getRelationships( TestTypes.FOO ) ), node3 );
+        assertContainsAll( otherNodes( node1, node1.getRelationships( Direction.OUTGOING, TestTypes.FOO, TestTypes.TEST ) ), node2 );
+        assertContainsAll( otherNodes( node1, node1.getRelationships( TestTypes.FOO, Direction.INCOMING ) ), node3 );
+        assertEquals( node2, node1.getSingleRelationship( TestTypes.TEST, Direction.OUTGOING ).getOtherNode( node1 ) );
+        assertTrue( node1.hasRelationship( Direction.OUTGOING ) );
+        assertTrue( node1.hasRelationship( Direction.INCOMING, TestTypes.FOO ) );
+        assertTrue( node1.hasRelationship( TestTypes.FOO ) );
+        assertTrue( node1.hasRelationship( TestTypes.TEST, Direction.OUTGOING ) );
+        assertTrue( node1.hasRelationship() );
+        assertFalse( node1.hasRelationship( TestTypes.TEST, Direction.INCOMING ) );
+    }
+
+    @Test
+    public void canUseNodeIndex()
+    {
+        Node node = createNode();
+        Index<Node> nodeIndex = graphdb.index().forNodes( "nodeIndex" );
+        Transaction tx = graphdb.beginTx();
+        try
+        {
+            nodeIndex.add( node, "key", "value" );
+            tx.success();
+        }
+        finally
+        {
+            tx.finish();
+        }
+        assertEquals( node, nodeIndex.get( "key", "value" ).getSingle() );
+        assertEquals( node, nodeIndex.query( "key:value" ).getSingle() );
+        tx = graphdb.beginTx();
+        try
+        {
+            nodeIndex.remove( node );
+            tx.success();
+        }
+        finally
+        {
+            tx.finish();
+        }
+        assertNull( nodeIndex.get( "key", "value" ).getSingle() );
     }
 
     public Node createNode()
@@ -109,10 +208,19 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
         }
     }
 
-    @Test
-    public void canCreateRelationship()
+    private Relationship createRelationship( Node from, Node to, TestTypes type )
     {
-        createRelationship();
+        Transaction tx = graphdb.beginTx();
+        try
+        {
+            Relationship rel = from.createRelationshipTo( to, type );
+            tx.success();
+            return rel;
+        }
+        finally
+        {
+            tx.finish();
+        }
     }
 
     public Relationship createRelationship()
@@ -129,18 +237,6 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
         {
             tx.finish();
         }
-    }
-
-    @Test
-    public void canOperateWithNodeProperty() throws Exception
-    {
-        canOperateWithProperty( EntityType.NODE );
-    }
-
-    @Test
-    public void canOperateWithRelationshipProperty() throws Exception
-    {
-        canOperateWithProperty( EntityType.REL );
     }
 
     private void canOperateWithProperty( EntityType entityType ) throws Exception
@@ -192,5 +288,54 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
             assertTrue( String.format( "Unexpected value <%s>", value ), expected.remove( value ) );
         }
         assertTrue( String.format( "Missing values %s", expected ), expected.isEmpty() );
+    }
+
+    enum EntityType
+    {
+        NODE
+            {
+                @Override
+                PropertyContainer create( TestHABugWorkaroundGraphDatabaseWrapper test )
+                {
+                    return test.createNode();
+                }
+            },
+        REL
+            {
+                @Override
+                PropertyContainer create( TestHABugWorkaroundGraphDatabaseWrapper test )
+                {
+                    return test.createRelationship();
+                }
+            };
+
+        abstract PropertyContainer create( TestHABugWorkaroundGraphDatabaseWrapper test );
+    }
+
+    enum TestTypes implements RelationshipType
+    {
+        TEST, FOO
+    }
+
+    public static class RelationshipOtherNodeIterableWrapper extends IterableWrapper<Node, Relationship>
+    {
+        private Node node;
+
+        public RelationshipOtherNodeIterableWrapper( Node node, Iterable<Relationship> relationships )
+        {
+            super( relationships );
+            this.node = node;
+        }
+
+        @Override
+        protected Node underlyingObjectToObject( Relationship relationship )
+        {
+            return relationship.getOtherNode( node );
+        }
+
+        public static RelationshipOtherNodeIterableWrapper otherNodes( Node node, Iterable<Relationship> relationships )
+        {
+            return new RelationshipOtherNodeIterableWrapper( node, relationships );
+        }
     }
 }

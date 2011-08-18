@@ -381,7 +381,9 @@ public abstract class WrappedIndex<T extends PropertyContainer, I extends Readab
         @Override
         public T getSingle()
         {
-            return wrap( hits.getSingle() );
+            T single = hits.getSingle();
+            if (single == null) return null;
+            return wrap( single );
         }
 
         @Override
