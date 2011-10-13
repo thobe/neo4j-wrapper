@@ -150,6 +150,12 @@ public abstract class WrappedIndex<T extends PropertyContainer, I extends Readab
         return new Hits( wrapped.query( queryOrQueryObject ) );
     }
 
+    @Override
+    public boolean isWriteable()
+    {
+        return wrapped.isWriteable();
+    }
+
     public static class WrappedNodeIndex<G extends WrappedGraphDatabase> extends
             WrappedIndex<Node, ReadableIndex<Node>>
     {

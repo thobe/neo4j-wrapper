@@ -19,6 +19,7 @@
  */
 package org.neo4j.wrap;
 
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -493,11 +494,11 @@ public abstract class WrappedGraphDatabase extends AbstractGraphDatabase
     }
 
     @Override
-    public <T> T getManagementBean( Class<T> type )
+    public <T> Collection<T> getManagementBeans( Class<T> type )
     {
         if ( graphdb instanceof AbstractGraphDatabase )
         {
-            return ( (AbstractGraphDatabase) graphdb ).getManagementBean( type );
+            return ( (AbstractGraphDatabase) graphdb ).getManagementBeans( type );
         }
         throw new UnsupportedOperationException( NOT_AGD );
     }
