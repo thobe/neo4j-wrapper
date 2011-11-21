@@ -110,7 +110,8 @@ public abstract class WrappedNode<G extends WrappedGraphDatabase> extends Wrappe
     @Override
     public Relationship getSingleRelationship( RelationshipType type, Direction dir )
     {
-        return graphdb.relationship( actual().getSingleRelationship( type, dir ), false );
+        Relationship singleRelationship = actual().getSingleRelationship( type, dir );
+        return singleRelationship != null ? graphdb.relationship( singleRelationship, false ) : null;
     }
 
     @Override

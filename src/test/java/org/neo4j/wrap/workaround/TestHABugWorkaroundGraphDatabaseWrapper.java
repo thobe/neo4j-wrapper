@@ -228,6 +228,20 @@ public class TestHABugWorkaroundGraphDatabaseWrapper
         assertEquals( "relIndex", relIndex.getName() );
         assertEquals( Relationship.class, relIndex.getEntityType() );
     }
+    
+    @Test
+    public void canGetSingleRelationship() throws Exception
+    {
+        Node node1 = createNode();
+        assertNull( node1.getSingleRelationship( TestTypes.TEST, Direction.OUTGOING ) );
+        
+        Transaction tx = graphdb.beginTx();
+        Relationship rel = node1.createRelationshipTo( createNode(), TestTypes.TEST );
+        assertEquals( rel, node1.getSingleRelationship( TestTypes.TEST, Direction.OUTGOING ) );
+        tx.success();
+        tx.finish();
+        assertEquals( rel, node1.getSingleRelationship( TestTypes.TEST, Direction.OUTGOING ) );
+    }
 
     private <T extends PropertyContainer> void indexRemove( Index<T> nodeIndex, T node )
     {
